@@ -1,0 +1,9 @@
+{
+  "$schema": "https://raw.githubusercontent.com/platformio/platformio-core/develop/platformio/assets/schema/library.json",
+  "name": "Heltec Battery Unified Sensor",
+  "version": "1.0.0",
+  "license": "MIT",
+  "dependencies": {
+    "adafruit/Adafruit Unified Sensor": "^1.1.9"
+  }
+}
