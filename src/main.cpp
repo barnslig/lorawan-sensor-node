@@ -2,8 +2,9 @@
 #include <CayenneLPP.h>
 #include <lmic.h>
 
-#include "HCSR04_U.h"
 #include "HeltecBatterySensor_U.h"
+#include "HTU21DF_Humidity_U.h"
+#include "HTU21DF_Temperature_U.h"
 #include "SensorCollection.h"
 #include "LoRaWAN.h"
 
@@ -11,7 +12,7 @@ constexpr bool kLoRaWANEnabled = true;
 constexpr bool kLoRaWANEnableLinkCheckMode = false;
 constexpr bool kLoRaWANEnableADR = true;
 constexpr uint8_t kLoRaWANFPort = 10;
-constexpr uint16_t kWorkIntervalSeconds = 45 * 60;
+constexpr uint16_t kWorkIntervalSeconds = 2 * 60 * 60;
 constexpr uint8_t kLoRaWANMaxPayloadSize = 51;
 
 constexpr uint8_t kMaxSensors = 3;
@@ -20,13 +21,14 @@ constexpr int32_t kBatterySensorId = 1;
 constexpr uint8_t kBatterySensorBatteryPin = 37;
 constexpr uint8_t kBatterySensorDrainPin = 21;
 
-constexpr int32_t kDistanceSensorId = 2;
-constexpr uint8_t kDistanceSensorTriggerPin = 33;
-constexpr uint8_t kDistancesensorEchoPin = 32;
+constexpr int32_t kHumiditySensorId = 3;
+constexpr int32_t kTemperatureSensorId = 4;
 
 HeltecBatterySensor_U batterySensor(kBatterySensorId, kBatterySensorBatteryPin, kBatterySensorDrainPin);
 
-HCSR04_U distanceSensor(kDistanceSensorId, kDistanceSensorTriggerPin, kDistancesensorEchoPin);
+Adafruit_HTU21DF htu = Adafruit_HTU21DF();
+HTU21DF_Humidity_U humiditySensor(kHumiditySensorId, &htu);
+HTU21DF_Temperature_U temperatureSensor(kTemperatureSensorId, &htu);
 
 SensorCollection sensors(kMaxSensors, kLoRaWANMaxPayloadSize);
 
@@ -46,11 +48,16 @@ void setup()
 {
   Serial.begin(115200);
 
+  // See https://github.com/Heltec-Aaron-Lee/WiFi_Kit_series/issues/62
+  Wire.begin(4, 15);
+
   batterySensor.begin();
-  distanceSensor.begin();
+  humiditySensor.begin();
+  temperatureSensor.begin();
 
   sensors.addSensor(&batterySensor);
-  sensors.addSensor(&distanceSensor);
+  sensors.addSensor(&humiditySensor);
+  sensors.addSensor(&temperatureSensor);
 
   lora->onDoWork(&doWork);
   lora->begin(kLoRaWANEnabled, kLoRaWANEnableADR, kLoRaWANEnableLinkCheckMode, kWorkIntervalSeconds);

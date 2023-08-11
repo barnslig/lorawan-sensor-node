@@ -36,6 +36,16 @@ CayenneLPP *SensorCollection::update()
             _lpp->addAnalogInput(_event.sensor_id, _event.distance);
             break;
         }
+        case SENSOR_TYPE_AMBIENT_TEMPERATURE:
+        {
+            _lpp->addTemperature(_event.sensor_id, _event.temperature);
+            break;
+        }
+        case SENSOR_TYPE_RELATIVE_HUMIDITY:
+        {
+            _lpp->addRelativeHumidity(_event.sensor_id, _event.relative_humidity);
+            break;
+        }
         }
     }
 
