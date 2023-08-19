@@ -8,7 +8,7 @@ void HTU21DF_Temperature_U::begin()
 {
     if (!sensor->begin())
     {
-        Serial.println("Couldn't find sensor!");
+        Serial.println("Couldn't find temperature sensor!");
     }
 }
 
@@ -33,7 +33,7 @@ void HTU21DF_Temperature_U::getSensor(sensor_t *sensor)
     /* Clear the sensor_t object */
     memset(sensor, 0, sizeof(sensor_t));
 
-    strncpy(sensor->name, "HTU21D TEMP", sizeof(sensor->name) - 1);
+    strncpy(sensor->name, "HTU21D TEM", sizeof(sensor->name) - 1);
     sensor->name[sizeof(sensor->name) - 1] = 0;
 
     sensor->version = 1;

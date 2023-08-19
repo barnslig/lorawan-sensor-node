@@ -1,6 +1,5 @@
 #include <Arduino.h>
 #include <CayenneLPP.h>
-#include <lmic.h>
 
 #include "HeltecBatterySensor_U.h"
 #include "HTU21DF_Humidity_U.h"
@@ -9,17 +8,21 @@
 #include "LoRaWAN.h"
 
 constexpr bool kLoRaWANEnabled = true;
-constexpr bool kLoRaWANEnableLinkCheckMode = false;
-constexpr bool kLoRaWANEnableADR = true;
+constexpr bool kLoRaWANEnableLinkCheckMode = true;
 constexpr uint8_t kLoRaWANFPort = 10;
-constexpr uint16_t kWorkIntervalSeconds = 2 * 60 * 60;
+constexpr uint16_t kWorkIntervalSeconds = 5 * 60;
 constexpr uint8_t kLoRaWANMaxPayloadSize = 51;
 
 constexpr uint8_t kMaxSensors = 3;
 
 constexpr int32_t kBatterySensorId = 1;
+#if defined(ARDUINO_heltec_wifi_lora_32_V3)
+constexpr uint8_t kBatterySensorBatteryPin = 1;
+constexpr uint8_t kBatterySensorDrainPin = 37;
+#elif defined(ARDUINO_HELTEC_WIFI_LORA_32_V2)
 constexpr uint8_t kBatterySensorBatteryPin = 37;
 constexpr uint8_t kBatterySensorDrainPin = 21;
+#endif
 
 constexpr int32_t kHumiditySensorId = 3;
 constexpr int32_t kTemperatureSensorId = 4;
@@ -41,15 +44,17 @@ void doWork()
   Serial.println("doWork");
 
   lpp = sensors.update();
-  LMIC_setTxData2(kLoRaWANFPort, lpp->getBuffer(), lpp->getSize(), 0);
+  lora->send(kLoRaWANFPort, lpp);
 }
 
 void setup()
 {
   Serial.begin(115200);
 
+#if defined(ARDUINO_HELTEC_WIFI_LORA_32_V2)
   // See https://github.com/Heltec-Aaron-Lee/WiFi_Kit_series/issues/62
   Wire.begin(4, 15);
+#endif
 
   batterySensor.begin();
   humiditySensor.begin();
@@ -60,7 +65,7 @@ void setup()
   sensors.addSensor(&temperatureSensor);
 
   lora->onDoWork(&doWork);
-  lora->begin(kLoRaWANEnabled, kLoRaWANEnableADR, kLoRaWANEnableLinkCheckMode, kWorkIntervalSeconds);
+  lora->begin(kLoRaWANEnabled, kLoRaWANEnableLinkCheckMode, kWorkIntervalSeconds);
 }
 
 void loop()

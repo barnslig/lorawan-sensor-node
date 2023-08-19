@@ -6,7 +6,10 @@ HTU21DF_Humidity_U::HTU21DF_Humidity_U(int32_t sensor_id, Adafruit_HTU21DF *sens
 
 void HTU21DF_Humidity_U::begin()
 {
-    sensor->begin();
+    if (!sensor->begin())
+    {
+        Serial.println("Couldn't find humidity sensor!");
+    }
 }
 
 bool HTU21DF_Humidity_U::getEvent(sensors_event_t *event)
@@ -30,7 +33,7 @@ void HTU21DF_Humidity_U::getSensor(sensor_t *sensor)
     /* Clear the sensor_t object */
     memset(sensor, 0, sizeof(sensor_t));
 
-    strncpy(sensor->name, "HTU21D HUMID", sizeof(sensor->name) - 1);
+    strncpy(sensor->name, "HTU21D HUM", sizeof(sensor->name) - 1);
     sensor->name[sizeof(sensor->name) - 1] = 0;
 
     sensor->version = 1;

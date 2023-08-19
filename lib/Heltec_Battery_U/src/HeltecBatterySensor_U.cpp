@@ -18,7 +18,12 @@ bool HeltecBatterySensor_U::getEvent(sensors_event_t *event)
     delay(10);
 
     uint32_t mV = analogReadMilliVolts(battery_pin);
+
+#if defined(ARDUINO_heltec_wifi_lora_32_V3)
+    float corr_V = mV * (390 + 100) / 100 * 0.001;
+#elif defined(ARDUINO_HELTEC_WIFI_LORA_32_V2)
     float corr_V = mV * (220 + 100) / 100 * 0.001;
+#endif
 
     digitalWrite(drain_pin, HIGH);
 
