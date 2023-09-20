@@ -55,7 +55,7 @@ private:
     /**
      * Save the LMIC session and put the ESP32 into deep sleep
      */
-    void goToSleep(uint16_t deepSleepDurationSeconds);
+    void goToSleep(OsDeltaTime deepSleepDurationSeconds);
 
     void doWork();
 

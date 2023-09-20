@@ -3,7 +3,7 @@
 // buffer to save current lmic state (size may be reduce)
 RTC_DATA_ATTR uint8_t saveState[301];
 
-void onLmicEvent(EventType ev)
+void onLmicEventWrapper(EventType ev)
 {
     LoRaWAN *lora = LoRaWAN::getInstance();
     lora->onLmicEvent(ev);
@@ -22,14 +22,14 @@ LoRaWAN *LoRaWAN::getInstance()
     return _instance;
 }
 
-void LoRaWAN::goToSleep(uint16_t deepSleepDurationSeconds)
+void LoRaWAN::goToSleep(OsDeltaTime deepSleepDuration)
 {
     // save before going to deep sleep.
     auto store = StoringBuffer{saveState};
     LMIC.saveState(store);
     saveState[300] = 51;
-    Serial.printf("State save len = %i\n", store.length());
-    ESP.deepSleep(deepSleepDurationSeconds * 1000000ULL);
+    Serial.printf("Sleep for %i seconds. State save len = %i\n", deepSleepDuration.to_s(), store.length());
+    ESP.deepSleep(deepSleepDuration.to_us());
 }
 
 void LoRaWAN::doWork()
@@ -148,7 +148,7 @@ void LoRaWAN::begin(bool isEnabled, bool enableLinkCheckMode, uint16_t workInter
 
         // Reset the MAC state. Session and pending data transfers will be discarded.
         LMIC.reset();
-        LMIC.setEventCallBack(::onLmicEvent);
+        LMIC.setEventCallBack(onLmicEventWrapper);
         SetupLmicKey<appEui, devEui, appKey>::setup(LMIC);
 
         // set clock error to allow good connection.
@@ -178,14 +178,7 @@ void LoRaWAN::loop()
             // the test must be adapted from the time spend in other task
             if (_nextSend < os_getTime())
             {
-                if (LMIC.getOpMode().test(OpState::TXRXPEND))
-                {
-                    {
-                        Serial.println(F("OpState::TXRXPEND, not sending"));
-                    }
-                }
-
-                else
+                if (!LMIC.getOpMode().test(OpState::TXRXPEND))
                 {
                     doWork();
                 }
@@ -193,15 +186,21 @@ void LoRaWAN::loop()
             else
             {
                 OsDeltaTime freeTimeBeforeSend = _nextSend - os_getTime();
-                OsDeltaTime to_wait =
-                    std::min(freeTimeBeforeNextCall, freeTimeBeforeSend);
-                delay(to_wait.to_ms() / 2);
+                OsDeltaTime to_wait = std::min(freeTimeBeforeNextCall, freeTimeBeforeSend);
+
+                if (to_wait.to_s() > 0)
+                {
+                    if (_shouldSleep)
+                    {
+                        goToSleep(to_wait);
+                    }
+                    else
+                    {
+                        Serial.printf("Delay for %i ms\n", to_wait.to_ms());
+                        delay(to_wait.to_ms());
+                    }
+                }
             }
         }
-    }
-
-    if (_shouldSleep)
-    {
-        goToSleep(_workIntervalSeconds);
     }
 }
