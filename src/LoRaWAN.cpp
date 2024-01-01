@@ -49,8 +49,9 @@ void LoRaWAN::onLmicEvent(EventType ev)
     case EventType::JOINING:
         Serial.println(F("EV_JOINING"));
 
-        // Raise to SF12 for join tx
-        // LMIC.setDrTx(0);
+        // Raise to SF11 for join tx
+        // See https://github.com/ngraziano/LMICPP-Arduino/blob/40e331d98fbd79c9fc505f9ae7440d3bef974bf3/src/lmic/lmic.eu868.h
+        LMIC.setDrTx(1);
 
         break;
 
