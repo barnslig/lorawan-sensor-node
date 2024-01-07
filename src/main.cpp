@@ -37,15 +37,7 @@ SensorCollection sensors(kMaxSensors, kLoRaWANMaxPayloadSize);
 
 CayenneLPP *lpp;
 
-LoRaWAN *lora = LoRaWAN::getInstance();
-
-void doWork()
-{
-  Serial.println("doWork");
-
-  lpp = sensors.update();
-  lora->send(kLoRaWANFPort, lpp);
-}
+LoRaWAN loraNode;
 
 void setup()
 {
@@ -64,11 +56,15 @@ void setup()
   sensors.addSensor(&humiditySensor);
   sensors.addSensor(&temperatureSensor);
 
-  lora->onDoWork(&doWork);
-  lora->begin(kLoRaWANEnabled, kLoRaWANEnableLinkCheckMode, kWorkIntervalSeconds);
+  loraNode.begin();
+
+  lpp = sensors.update();
+  loraNode.send(kLoRaWANFPort, lpp);
+
+  Serial.println("Go to sleep");
+  ESP.deepSleep(kWorkIntervalSeconds * 1e6);
 }
 
 void loop()
 {
-  lora->loop();
 }

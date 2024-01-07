@@ -1,207 +1,105 @@
 #include "LoRaWAN.h"
+#include "lorawan-keys.h"
 
-// buffer to save current lmic state (size may be reduce)
-RTC_DATA_ATTR uint8_t saveState[301];
-
-void onLmicEventWrapper(EventType ev)
+LoRaWAN::LoRaWAN() :
+#if defined(ARDUINO_heltec_wifi_lora_32_V3)
+                     // NSS pin: 8
+                     // DIO1 pin: 14
+                     // RESET pin: 12
+                     // BUSY pin: 13
+                     mod(8, 14, 12, 13),
+#elif defined(ARDUINO_HELTEC_WIFI_LORA_32_V2)
+                     // NSS pin: 18
+                     // DIO0 pin: 26
+                     // RESET pin: 14
+                     // DIO1 pin: 35
+                     mod(18, 26, 14, 35),
+#endif
+                     radio(&mod),
+                     node(&radio, &EU868)
 {
-    LoRaWAN *lora = LoRaWAN::getInstance();
-    lora->onLmicEvent(ev);
 }
 
-LoRaWAN *LoRaWAN::_instance = nullptr;
-
-LoRaWAN::LoRaWAN() : _doWorkCb(nullptr) {}
-
-LoRaWAN *LoRaWAN::getInstance()
+void LoRaWAN::begin()
 {
-    if (_instance == nullptr)
+    int state = radio.begin();
+    if (state == RADIOLIB_ERR_NONE)
     {
-        _instance = new LoRaWAN();
+        Serial.println(F("LoRa radio initialization success!"));
     }
-    return _instance;
-}
-
-void LoRaWAN::goToSleep(OsDeltaTime deepSleepDuration)
-{
-    // save before going to deep sleep.
-    auto store = StoringBuffer{saveState};
-    LMIC.saveState(store);
-    saveState[300] = 51;
-    Serial.printf("Sleep for %i seconds. State save len = %i\n", deepSleepDuration.to_s(), store.length());
-    ESP.deepSleep(deepSleepDuration.to_us());
-}
-
-void LoRaWAN::doWork()
-{
-    Serial.println(F("do work"));
-
-    // Execute external workload
-    _doWorkCb();
-
-    _nextSend = os_getTime() + OsDeltaTime::from_sec(_workIntervalSeconds);
-}
-
-void LoRaWAN::onLmicEvent(EventType ev)
-{
-    switch (ev)
+    else
     {
-    case EventType::JOINING:
-        Serial.println(F("EV_JOINING"));
-
-        // Raise to SF11 for join tx
-        // See https://github.com/ngraziano/LMICPP-Arduino/blob/40e331d98fbd79c9fc505f9ae7440d3bef974bf3/src/lmic/lmic.eu868.h
-        LMIC.setDrTx(1);
-
-        break;
-
-    case EventType::JOINED:
-    {
-        Serial.println(F("EV_JOINED"));
-
-        // Disable Link Check Mode so that the sensor keeps transmitting
-        // sensor data even if it has not received an ACK for some time.
-        LMIC.setLinkCheckMode(_enableLinkCheckMode);
-
-        // Reschedule work
-        // os_clearCallback(&doWorkJob);
-        // os_setCallback(&::doWorkJob, ::doWork);
-        _nextSend = os_getTime();
-
-        break;
+        Serial.print(F("LoRa radio initialization failed, code "));
+        Serial.println(state);
+        while (true)
+            ;
     }
 
-    case EventType::JOIN_FAILED:
+    Serial.print(F("[LoRaWAN] Attempting over-the-air activation ... "));
+    state = node.beginOTAA(joinEUI, devEUI, nwkKey, appKey);
+
+    if (state == RADIOLIB_ERR_NONE)
     {
-        Serial.println(F("EV_JOIN_FAILED"));
-        break;
+        Serial.println(F("OTAA success!"));
     }
-
-    case EventType::TXCOMPLETE:
+    else
     {
-        Serial.println(F("EV_TXCOMPLETE"));
+        Serial.print(F("OTAA failed, code "));
+        Serial.println(state);
+        while (true)
+            ;
+    }
+}
 
-        if (LMIC.getTxRxFlags().test(TxRxStatus::ACK))
+void LoRaWAN::send(uint8_t fport, CayenneLPP *lpp)
+{
+    // LoRaWAN downlinks can have 250 bytes at most with 1 extra byte for NULL
+    size_t length = 0;
+    uint8_t data[251];
+
+    int state = node.sendReceive(lpp->getBuffer(), lpp->getSize(), fport, data, &length);
+
+    if (state == RADIOLIB_ERR_NONE)
+    {
+        Serial.println(F("received a downlink!"));
+
+        // print data of the packet (if there are any)
+        Serial.print(F("[LoRaWAN] Data:\t\t"));
+        if (length > 0)
         {
-            Serial.println(F("Received ack"));
+            data[length] = '\0';
+            String str = String((char *)data);
+            Serial.println(str);
+        }
+        else
+        {
+            Serial.println(F("<MAC commands only>"));
         }
 
-        if (LMIC.getDataLen())
-        {
-            Serial.printf("Received %d bytes of payload", LMIC.getDataLen());
-        }
+        // print RSSI (Received Signal Strength Indicator)
+        Serial.print(F("[LoRaWAN] RSSI:\t\t"));
+        Serial.print(radio.getRSSI());
+        Serial.println(F(" dBm"));
 
-        _shouldSleep = true;
+        // print SNR (Signal-to-Noise Ratio)
+        Serial.print(F("[LoRaWAN] SNR:\t\t"));
+        Serial.print(radio.getSNR());
+        Serial.println(F(" dB"));
 
-        break;
+        // print frequency error
+        Serial.print(F("[LoRaWAN] Frequency error:\t"));
+        Serial.print(radio.getFrequencyError());
+        Serial.println(F(" Hz"));
     }
-
-    case EventType::RESET:
+    else if (state == RADIOLIB_ERR_RX_TIMEOUT)
     {
-        Serial.println(F("EV_RESET"));
-        break;
+        Serial.println(F("no downlink!"));
     }
-
-    case EventType::LINK_DEAD:
+    else
     {
-        Serial.println(F("EV_LINK_DEAD"));
-        break;
+        Serial.print(F("SEND failed, code "));
+        Serial.println(state);
     }
 
-    case EventType::LINK_ALIVE:
-    {
-        Serial.println(F("EV_LINK_ALIVE"));
-        break;
-    }
-
-    default:
-    {
-        Serial.println(F("Unknown event"));
-        break;
-    }
-    }
-}
-
-void LoRaWAN::onDoWork(work_cb_t *cb)
-{
-    _doWorkCb = cb;
-}
-
-int8_t LoRaWAN::send(uint8_t fport, CayenneLPP *lpp)
-{
-    return LMIC.setTxData2(fport, lpp->getBuffer(), lpp->getSize(), 0);
-}
-
-void LoRaWAN::begin(bool isEnabled, bool enableLinkCheckMode, uint16_t workIntervalSeconds)
-{
-    _isEnabled = isEnabled;
-    _enableLinkCheckMode = enableLinkCheckMode;
-    _workIntervalSeconds = workIntervalSeconds;
-    _shouldSleep = false;
-
-    if (_isEnabled)
-    {
-        SPI.begin();
-
-        // LMIC init
-        os_init();
-        LMIC.init();
-
-        // Reset the MAC state. Session and pending data transfers will be discarded.
-        LMIC.reset();
-        LMIC.setEventCallBack(onLmicEventWrapper);
-        SetupLmicKey<appEui, devEui, appKey>::setup(LMIC);
-
-        // set clock error to allow good connection.
-        LMIC.setClockError(MAX_CLOCK_ERROR * 3 / 100);
-
-        if (saveState[300] == 51)
-        {
-            auto retrieve = RetrieveBuffer{saveState};
-            LMIC.loadState(retrieve);
-            saveState[300] = 0;
-        }
-    }
-
-    // Start job (sending automatically starts OTAA too)
-    _nextSend = os_getTime();
-}
-
-void LoRaWAN::loop()
-{
-    if (_isEnabled)
-    {
-        OsDeltaTime freeTimeBeforeNextCall = LMIC.run();
-
-        if (freeTimeBeforeNextCall > OsDeltaTime::from_ms(10))
-        {
-            // we have more than 10 ms to do some work.
-            // the test must be adapted from the time spend in other task
-            if (_nextSend < os_getTime())
-            {
-                if (!LMIC.getOpMode().test(OpState::TXRXPEND))
-                {
-                    doWork();
-                }
-            }
-            else
-            {
-                OsDeltaTime freeTimeBeforeSend = _nextSend - os_getTime();
-                OsDeltaTime to_wait = std::min(freeTimeBeforeNextCall, freeTimeBeforeSend);
-
-                if (to_wait.to_s() > 0)
-                {
-                    if (_shouldSleep)
-                    {
-                        goToSleep(to_wait);
-                    }
-                    else
-                    {
-                        Serial.printf("Delay for %i ms\n", to_wait.to_ms());
-                        delay(to_wait.to_ms());
-                    }
-                }
-            }
-        }
-    }
+    node.saveSession();
 }
