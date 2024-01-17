@@ -1,10 +1,8 @@
 #include "SensorCollection.h"
 
-SensorCollection::SensorCollection(uint8_t size, uint8_t lpp_size) : _maxsize(size)
+SensorCollection::SensorCollection(uint8_t size, uint8_t lpp_size) : _maxsize(size), _lpp(lpp_size)
 {
     _sensors = (Adafruit_Sensor **)malloc(size * sizeof(Adafruit_Sensor *));
-    _cursor = 0;
-    _lpp = new CayenneLPP(lpp_size);
 };
 
 void SensorCollection::addSensor(Adafruit_Sensor *sensor)
@@ -18,7 +16,7 @@ void SensorCollection::addSensor(Adafruit_Sensor *sensor)
 
 CayenneLPP *SensorCollection::update()
 {
-    _lpp->reset();
+    _lpp.reset();
 
     for (uint8_t i = 0; i < _cursor; i += 1)
     {
@@ -28,26 +26,26 @@ CayenneLPP *SensorCollection::update()
         {
         case SENSOR_TYPE_VOLTAGE:
         {
-            _lpp->addAnalogInput(_event.sensor_id, _event.voltage);
+            _lpp.addAnalogInput(_event.sensor_id, _event.voltage);
             break;
         }
         case SENSOR_TYPE_PROXIMITY:
         {
-            _lpp->addAnalogInput(_event.sensor_id, _event.distance);
+            _lpp.addAnalogInput(_event.sensor_id, _event.distance);
             break;
         }
         case SENSOR_TYPE_AMBIENT_TEMPERATURE:
         {
-            _lpp->addTemperature(_event.sensor_id, _event.temperature);
+            _lpp.addTemperature(_event.sensor_id, _event.temperature);
             break;
         }
         case SENSOR_TYPE_RELATIVE_HUMIDITY:
         {
-            _lpp->addRelativeHumidity(_event.sensor_id, _event.relative_humidity);
+            _lpp.addRelativeHumidity(_event.sensor_id, _event.relative_humidity);
             break;
         }
         }
     }
 
-    return _lpp;
+    return &_lpp;
 }

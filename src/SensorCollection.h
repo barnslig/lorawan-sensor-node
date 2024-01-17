@@ -41,7 +41,7 @@ private:
     /**
      * Index of the next non-used sensor pointer array slot
      */
-    uint8_t _cursor;
+    uint8_t _cursor = 0;
 
     /**
      * Array with all sensor pointers of this collection
@@ -56,7 +56,7 @@ private:
     /**
      * CayenneLPP container into which sensor data is serialized
      */
-    CayenneLPP *_lpp;
+    CayenneLPP _lpp;
 };
 
 #endif // SENSOR_COLLECTION_H_
