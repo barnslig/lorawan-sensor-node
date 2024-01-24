@@ -23,7 +23,7 @@ LoRaWAN::LoRaWAN() :
 void LoRaWAN::begin()
 {
     int state = radio.begin();
-    if (state == RADIOLIB_ERR_NONE)
+    if (state >= RADIOLIB_ERR_NONE)
     {
         Serial.println(F("LoRa radio initialization success!"));
     }
@@ -35,10 +35,10 @@ void LoRaWAN::begin()
             ;
     }
 
-    Serial.print(F("[LoRaWAN] Attempting over-the-air activation ... "));
+    Serial.println(F("[LoRaWAN] Attempting over-the-air activation ... "));
     state = node.beginOTAA(joinEUI, devEUI, nwkKey, appKey);
 
-    if (state == RADIOLIB_ERR_NONE)
+    if (state >= RADIOLIB_ERR_NONE)
     {
         Serial.println(F("OTAA success!"));
     }
@@ -59,7 +59,7 @@ void LoRaWAN::send(uint8_t fport, CayenneLPP *lpp)
 
     int state = node.sendReceive(lpp->getBuffer(), lpp->getSize(), fport, data, &length);
 
-    if (state == RADIOLIB_ERR_NONE)
+    if (state >= RADIOLIB_ERR_NONE)
     {
         Serial.println(F("received a downlink!"));
 
@@ -102,4 +102,16 @@ void LoRaWAN::send(uint8_t fport, CayenneLPP *lpp)
     }
 
     node.saveSession();
+}
+
+void LoRaWAN::sleep(uint16_t time_s)
+{
+    uint32_t minimumDelay = time_s * 1e3;
+    uint32_t dutyCycleDelay = node.timeUntilUplink();
+    uint32_t time_ms = max(dutyCycleDelay, minimumDelay);
+
+    Serial.printf("Go to sleep for %u ms\n", time_ms);
+
+    radio.sleep();
+    ESP.deepSleep(time_ms * 1e3);
 }

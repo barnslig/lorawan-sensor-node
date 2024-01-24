@@ -14,6 +14,8 @@ public:
 
     void send(uint8_t fport, CayenneLPP *lpp);
 
+    void sleep(uint16_t time_s);
+
 private:
     Module mod;
 
