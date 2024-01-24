@@ -12,11 +12,17 @@ public:
 
     void begin();
 
+    void join();
+
     void send(uint8_t fport, CayenneLPP *lpp);
 
     void sleep(uint16_t time_s);
 
+    void reset();
+
 private:
+    bool joined = false;
+
     Module mod;
 
 #if defined(ARDUINO_heltec_wifi_lora_32_V3)

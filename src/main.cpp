@@ -6,6 +6,7 @@
 #include "HTU21DF_Temperature_U.h"
 #include "SensorCollection.h"
 #include "LoRaWAN.h"
+#include "PrgButton.h"
 
 constexpr bool kLoRaWANEnabled = true;
 constexpr bool kLoRaWANEnableLinkCheckMode = true;
@@ -37,7 +38,22 @@ SensorCollection sensors(kMaxSensors, kLoRaWANMaxPayloadSize);
 
 CayenneLPP *lpp;
 
+PrgButton prgButton;
 LoRaWAN loraNode;
+
+void sleep()
+{
+  prgButton.sleep();
+  loraNode.sleep(kWorkIntervalSeconds);
+}
+
+void work()
+{
+  lpp = sensors.update();
+  loraNode.send(kLoRaWANFPort, lpp);
+
+  sleep();
+}
 
 void setup()
 {
@@ -56,15 +72,35 @@ void setup()
   sensors.addSensor(&humiditySensor);
   sensors.addSensor(&temperatureSensor);
 
+  prgButton.begin();
   loraNode.begin();
 
-  lpp = sensors.update();
-  loraNode.send(kLoRaWANFPort, lpp);
-
-  Serial.println("Go to sleep");
-  ESP.deepSleep(kWorkIntervalSeconds * 1e6);
+  esp_sleep_wakeup_cause_t wakeupCause = esp_sleep_get_wakeup_cause();
+  if (wakeupCause == ESP_SLEEP_WAKEUP_TIMER || wakeupCause == ESP_SLEEP_WAKEUP_UNDEFINED)
+  {
+    // Start an uplink after wakeup from regular reset or timer
+    work();
+  }
 }
 
 void loop()
 {
+  unsigned long prgBtnDuration = prgButton.update();
+  if (prgBtnDuration > 0)
+  {
+    Serial.printf("Button pressed for: %lu ms\n", prgBtnDuration);
+
+    if (prgBtnDuration > 5000)
+    {
+      Serial.println(F("Reset device"));
+      loraNode.reset();
+    }
+    else if (prgBtnDuration > 1000)
+    {
+      Serial.println(F("Immediate uplink"));
+      work();
+    }
+
+    sleep();
+  }
 }

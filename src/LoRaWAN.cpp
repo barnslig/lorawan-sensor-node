@@ -34,13 +34,20 @@ void LoRaWAN::begin()
         while (true)
             ;
     }
+}
+
+void LoRaWAN::join()
+{
+    if (joined)
+        return;
 
     Serial.println(F("[LoRaWAN] Attempting over-the-air activation ... "));
-    state = node.beginOTAA(joinEUI, devEUI, nwkKey, appKey);
+    int state = node.beginOTAA(joinEUI, devEUI, nwkKey, appKey);
 
     if (state >= RADIOLIB_ERR_NONE)
     {
         Serial.println(F("OTAA success!"));
+        joined = true;
     }
     else
     {
@@ -53,6 +60,8 @@ void LoRaWAN::begin()
 
 void LoRaWAN::send(uint8_t fport, CayenneLPP *lpp)
 {
+    join();
+
     // LoRaWAN downlinks can have 250 bytes at most with 1 extra byte for NULL
     size_t length = 0;
     uint8_t data[251];
@@ -114,4 +123,10 @@ void LoRaWAN::sleep(uint16_t time_s)
 
     radio.sleep();
     ESP.deepSleep(time_ms * 1e3);
+}
+
+void LoRaWAN::reset()
+{
+    node.wipe();
+    ESP.restart();
 }
