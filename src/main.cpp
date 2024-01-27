@@ -1,38 +1,35 @@
 #include <Arduino.h>
 #include <CayenneLPP.h>
 
-#include "HeltecBatterySensor_U.h"
-#include "HTU21DF_Humidity_U.h"
-#include "HTU21DF_Temperature_U.h"
 #include "SensorCollection.h"
 #include "LoRaWAN.h"
 #include "PrgButton.h"
 
-constexpr bool kLoRaWANEnabled = true;
-constexpr bool kLoRaWANEnableLinkCheckMode = true;
-constexpr uint8_t kLoRaWANFPort = 10;
-constexpr uint16_t kWorkIntervalSeconds = 5 * 60;
-constexpr uint8_t kLoRaWANMaxPayloadSize = 51;
+#include "config.h"
 
+constexpr uint8_t kLoRaWANMaxPayloadSize = 51;
 constexpr uint8_t kMaxSensors = 3;
 
-constexpr int32_t kBatterySensorId = 1;
-#if defined(ARDUINO_heltec_wifi_lora_32_V3)
-constexpr uint8_t kBatterySensorBatteryPin = 1;
-constexpr uint8_t kBatterySensorDrainPin = 37;
-#elif defined(ARDUINO_HELTEC_WIFI_LORA_32_V2)
-constexpr uint8_t kBatterySensorBatteryPin = 37;
-constexpr uint8_t kBatterySensorDrainPin = 21;
-#endif
+#ifdef USE_HELTEC_BATTERY
+#include "HeltecBatterySensor_U.h"
 
-constexpr int32_t kHumiditySensorId = 3;
-constexpr int32_t kTemperatureSensorId = 4;
+HeltecBatterySensor_U batterySensor(HELTEC_BATTERY_SENSOR_ID, HELTEC_BATTERY_BATTERY_PIN, HELTEC_BATTERY_DRAIN_PIN);
+#endif // USE_HELTEC_BATTERY
 
-HeltecBatterySensor_U batterySensor(kBatterySensorId, kBatterySensorBatteryPin, kBatterySensorDrainPin);
+#ifdef USE_HTU
+#include "HTU21DF_Humidity_U.h"
+#include "HTU21DF_Temperature_U.h"
 
 Adafruit_HTU21DF htu = Adafruit_HTU21DF();
-HTU21DF_Humidity_U humiditySensor(kHumiditySensorId, &htu);
-HTU21DF_Temperature_U temperatureSensor(kTemperatureSensorId, &htu);
+HTU21DF_Humidity_U humiditySensor(HTU_HUMIDITY_SENSOR_ID, &htu);
+HTU21DF_Temperature_U temperatureSensor(HTU_TEMPERATURE_SENSOR_ID, &htu);
+#endif // USE_HTU
+
+#ifdef USE_SR04
+#include "HCSR04_U.h"
+
+HCSR04_U distanceSensor(SR04_SENSOR_ID, SR04_TRIGGER_PIN, SR04_ECHO_PIN);
+#endif // USE_SR04
 
 SensorCollection sensors(kMaxSensors, kLoRaWANMaxPayloadSize);
 
@@ -44,13 +41,14 @@ LoRaWAN loraNode;
 void sleep()
 {
   prgButton.sleep();
-  loraNode.sleep(kWorkIntervalSeconds);
+  loraNode.sleep(LORAWAN_UPLINK_INTERVAL);
 }
 
 void work()
 {
   lpp = sensors.update();
-  loraNode.send(kLoRaWANFPort, lpp);
+
+  loraNode.send(LORAWAN_F_PORT, lpp);
 
   sleep();
 }
@@ -64,13 +62,22 @@ void setup()
   Wire.begin(4, 15);
 #endif
 
+#ifdef USE_HELTEC_BATTERY
   batterySensor.begin();
+  sensors.addSensor(&batterySensor);
+#endif // USE_HELTEC_BATTERY
+
+#ifdef USE_HTU
   humiditySensor.begin();
   temperatureSensor.begin();
-
-  sensors.addSensor(&batterySensor);
   sensors.addSensor(&humiditySensor);
   sensors.addSensor(&temperatureSensor);
+#endif // USE_HTU
+
+#ifdef USE_SR04
+  distanceSensor.begin();
+  sensors.addSensor(&distanceSensor);
+#endif // USE_SR04
 
   prgButton.begin();
   loraNode.begin();
