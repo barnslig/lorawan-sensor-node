@@ -24,4 +24,9 @@
 // #define SR04_TRIGGER_PIN 33
 // #define SR04_ECHO_PIN 32
 
+// #define USE_DS18
+// #define DS18_ONEWIRE_PIN 13
+// #define DS18_SENSOR_ID 5
+// #define DS18_SENSOR_NUM 2
+
 #endif // CONFIG_H_

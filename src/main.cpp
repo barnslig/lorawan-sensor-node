@@ -31,6 +31,15 @@ HTU21DF_Temperature_U temperatureSensor(HTU_TEMPERATURE_SENSOR_ID, &htu);
 HCSR04_U distanceSensor(SR04_SENSOR_ID, SR04_TRIGGER_PIN, SR04_ECHO_PIN);
 #endif // USE_SR04
 
+#ifdef USE_DS18
+#include "DallasTemperature_U.h"
+
+OneWire oneWire(DS18_ONEWIRE_PIN);
+DallasTemperature tempSensors(&oneWire);
+
+DallasTemperature_U *temperatureSensors[DS18_SENSOR_NUM];
+#endif // USE_DS18
+
 SensorCollection sensors(kMaxSensors, kLoRaWANMaxPayloadSize);
 
 CayenneLPP *lpp;
@@ -78,6 +87,17 @@ void setup()
   distanceSensor.begin();
   sensors.addSensor(&distanceSensor);
 #endif // USE_SR04
+
+#ifdef USE_DS18
+  tempSensors.begin();
+
+  for (uint8_t i = 0; i < DS18_SENSOR_NUM; i += 1)
+  {
+    temperatureSensors[i] = new DallasTemperature_U(DS18_SENSOR_ID + i, i, &tempSensors);
+    temperatureSensors[i]->begin();
+    sensors.addSensor(temperatureSensors[i]);
+  }
+#endif // USE_DS18
 
   prgButton.begin();
   loraNode.begin();

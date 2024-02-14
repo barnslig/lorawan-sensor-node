@@ -1,0 +1,10 @@
+{
+  "$schema": "https://raw.githubusercontent.com/platformio/platformio-core/develop/platformio/assets/schema/library.json",
+  "name": "Dallas Temperature Unified Sensor",
+  "version": "1.0.0",
+  "license": "MIT",
+  "dependencies": {
+    "adafruit/Adafruit Unified Sensor": "^1.1.9",
+    "milesburton/DallasTemperature": "^3.11.0"
+  }
+}
