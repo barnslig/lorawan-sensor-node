@@ -1,6 +1,8 @@
 #ifndef CONFIG_H_
 #define CONFIG_H_
 
+#define DEBUG_PRINT_SENSOR_VALUES
+
 #define LORAWAN_F_PORT 10               // Uplink fport
 #define LORAWAN_UPLINK_INTERVAL 20 * 60 // Work interval, in seconds
 

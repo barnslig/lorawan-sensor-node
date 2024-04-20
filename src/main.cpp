@@ -63,6 +63,11 @@ CayenneLPP *lpp;
 PrgButton prgButton;
 LoRaWAN loraNode(&joinEUI, &devEUI, nwkKey, appKey);
 
+#ifdef DEBUG_PRINT_SENSOR_VALUES
+DynamicJsonDocument jsonBuffer(1024);
+JsonObject root = jsonBuffer.to<JsonObject>();
+#endif // DEBUG_PRINT_SENSOR_VALUES
+
 void sleep()
 {
   prgButton.sleep();
@@ -72,6 +77,13 @@ void sleep()
 void work()
 {
   lpp = sensors.update();
+
+#ifdef DEBUG_PRINT_SENSOR_VALUES
+  root.clear();
+  lpp->decodeTTN(lpp->getBuffer(), lpp->getSize(), root);
+  serializeJsonPretty(root, Serial);
+  Serial.println();
+#endif // DEBUG_PRINT_SENSOR_VALUES
 
   loraNode.send(LORAWAN_F_PORT, lpp);
 
