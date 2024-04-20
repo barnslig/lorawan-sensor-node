@@ -1,14 +1,30 @@
 #include <Arduino.h>
 #include <CayenneLPP.h>
+#include <Wire.h>
 
 #include "SensorCollection.h"
 #include "LoRaWAN.h"
 #include "PrgButton.h"
 
 #include "config.h"
+#include "lorawan-keys.h"
 
 constexpr uint8_t kLoRaWANMaxPayloadSize = 51;
 constexpr uint8_t kMaxSensors = 3;
+
+#ifdef USE_DISPLAY
+#include "Display.h"
+
+U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, DISPLAY_RESET_PIN, DISPLAY_CLOCK_PIN, DISPLAY_DATA_PIN);
+
+Display display(&u8g2);
+
+DisplayState displayState = {
+    .batteryVoltage = 0,
+    .devEUI = devEUI,
+    .isJoined = false,
+    .fcntUp = 0};
+#endif // USE_DISPLAY
 
 #ifdef USE_HELTEC_BATTERY
 #include "HeltecBatterySensor_U.h"
@@ -45,7 +61,7 @@ SensorCollection sensors(kMaxSensors, kLoRaWANMaxPayloadSize);
 CayenneLPP *lpp;
 
 PrgButton prgButton;
-LoRaWAN loraNode;
+LoRaWAN loraNode(&joinEUI, &devEUI, nwkKey, appKey);
 
 void sleep()
 {
@@ -70,6 +86,10 @@ void setup()
   // See https://github.com/Heltec-Aaron-Lee/WiFi_Kit_series/issues/62
   Wire.begin(4, 15);
 #endif
+
+#ifdef USE_DISPLAY
+  display.begin();
+#endif // USE_DISPLAY
 
 #ifdef USE_HELTEC_BATTERY
   batterySensor.begin();
@@ -126,6 +146,23 @@ void loop()
     {
       Serial.println(F("Immediate uplink"));
       work();
+    }
+    else
+    {
+      Serial.println(F("Display device info"));
+
+#ifdef USE_HELTEC_BATTERY
+      sensors_event_t event;
+      batterySensor.getEvent(&event);
+      displayState.batteryVoltage = event.voltage;
+#endif // USE_HELTEC_BATTERY
+
+      displayState.isJoined = loraNode.getNode()->isJoined();
+      displayState.fcntUp = loraNode.getNode()->getFcntUp();
+
+      display.print(&displayState);
+
+      delay(10000);
     }
 
     sleep();

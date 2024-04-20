@@ -34,6 +34,7 @@ Currently, the following boards are supported:
 
 The node can be controlled by pushing the PRG button as follows:
 
+- Press PRG for <1s: Show device info on the display.
 - Press PRG for >1s and <5s: Immediately try to send an uplink message.
 - Press PRG for >5s: Resets all node state and rejoins the network.
 

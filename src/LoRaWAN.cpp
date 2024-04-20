@@ -1,22 +1,28 @@
 #include "LoRaWAN.h"
-#include "lorawan-keys.h"
 
-LoRaWAN::LoRaWAN() :
+LoRaWAN::LoRaWAN(
+    uint64_t *joinEUI,
+    uint64_t *devEUI,
+    uint8_t *nwkKey,
+    uint8_t *appKey) : joinEUI(joinEUI),
+                       devEUI(devEUI),
+                       nwkKey(nwkKey),
+                       appKey(appKey),
 #if defined(ARDUINO_heltec_wifi_lora_32_V3)
-                     // NSS pin: 8
-                     // DIO1 pin: 14
-                     // RESET pin: 12
-                     // BUSY pin: 13
-                     mod(8, 14, 12, 13),
+                       // NSS pin: 8
+                       // DIO1 pin: 14
+                       // RESET pin: 12
+                       // BUSY pin: 13
+                       mod(8, 14, 12, 13),
 #elif defined(ARDUINO_HELTEC_WIFI_LORA_32_V2)
-                     // NSS pin: 18
-                     // DIO0 pin: 26
-                     // RESET pin: 14
-                     // DIO1 pin: 35
-                     mod(18, 26, 14, 35),
+                       // NSS pin: 18
+                       // DIO0 pin: 26
+                       // RESET pin: 14
+                       // DIO1 pin: 35
+                       mod(18, 26, 14, 35),
 #endif
-                     radio(&mod),
-                     node(&radio, &EU868)
+                       radio(&mod),
+                       node(&radio, &EU868)
 {
 }
 
@@ -42,7 +48,7 @@ void LoRaWAN::join()
         return;
 
     Serial.println(F("[LoRaWAN] Attempting over-the-air activation ... "));
-    int state = node.beginOTAA(joinEUI, devEUI, nwkKey, appKey);
+    int state = node.beginOTAA(*joinEUI, *devEUI, nwkKey, appKey);
 
     if (state >= RADIOLIB_ERR_NONE)
     {
@@ -129,4 +135,9 @@ void LoRaWAN::reset()
 {
     node.wipe();
     ESP.restart();
+}
+
+LoRaWANNode *LoRaWAN::getNode()
+{
+    return &node;
 }

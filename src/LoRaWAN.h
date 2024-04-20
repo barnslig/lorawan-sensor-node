@@ -8,7 +8,7 @@
 class LoRaWAN
 {
 public:
-    LoRaWAN();
+    LoRaWAN(uint64_t *joinEUI, uint64_t *devEUI, uint8_t *nwkKey, uint8_t *appKey);
 
     void begin();
 
@@ -20,7 +20,17 @@ public:
 
     void reset();
 
+    LoRaWANNode *getNode();
+
 private:
+    uint64_t *joinEUI;
+
+    uint64_t *devEUI;
+
+    uint8_t *nwkKey;
+
+    uint8_t *appKey;
+
     bool joined = false;
 
     Module mod;
