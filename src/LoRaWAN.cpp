@@ -1,5 +1,11 @@
 #include "LoRaWAN.h"
 
+// utilities & vars to support ESP32 deep-sleep. The RTC_DATA_ATTR attribute
+// puts these in to the RTC memory which is preserved during deep-sleep
+RTC_DATA_ATTR uint16_t bootCount = 1;
+RTC_DATA_ATTR uint16_t bootCountSinceUnsuccessfulJoin = 0;
+RTC_DATA_ATTR uint8_t LWsession[RADIOLIB_LORAWAN_SESSION_BUF_SIZE];
+
 LoRaWAN::LoRaWAN(
     uint64_t *joinEUI,
     uint64_t *devEUI,
@@ -28,6 +34,9 @@ LoRaWAN::LoRaWAN(
 
 void LoRaWAN::begin()
 {
+    Serial.print(F("Boot count: "));
+    Serial.println(bootCount++);
+
     int state = radio.begin();
     if (state >= RADIOLIB_ERR_NONE)
     {
@@ -40,6 +49,34 @@ void LoRaWAN::begin()
         while (true)
             ;
     }
+
+    store.begin("radiolib");
+
+    Serial.println(F("Recalling LoRaWAN nonces & session"));
+
+    if (store.isKey("nonces"))
+    {
+        uint8_t buffer[RADIOLIB_LORAWAN_NONCES_BUF_SIZE];
+        store.getBytes("nonces", buffer, RADIOLIB_LORAWAN_NONCES_BUF_SIZE);
+
+        state = node.setBufferNonces(buffer);
+        if (state != RADIOLIB_ERR_NONE)
+        {
+            Serial.print(F("Restoring nonces buffer failed"));
+            Serial.println(state);
+        }
+    }
+
+    state = node.setBufferSession(LWsession);
+
+    // if we have booted at least once we should have a session to restore, so report any failure
+    // otherwise no point saying there's been a failure when it was bound to fail with an empty
+    // LWsession var. At this point, bootCount has already been incremented, hence the > 2
+    if ((state != RADIOLIB_ERR_NONE) && (bootCount > 2))
+    {
+        Serial.print(F("Restoring session buffer failed"));
+        Serial.println(state);
+    }
 }
 
 void LoRaWAN::join()
@@ -47,20 +84,57 @@ void LoRaWAN::join()
     if (joined)
         return;
 
-    Serial.println(F("[LoRaWAN] Attempting over-the-air activation ... "));
-    int state = node.beginOTAA(*joinEUI, *devEUI, nwkKey, appKey);
+    int state = node.beginOTAA(*joinEUI, *devEUI, nwkKey, appKey, false, 0);
 
-    if (state >= RADIOLIB_ERR_NONE)
+    if ((state != RADIOLIB_ERR_NONE) && (bootCount > 2))
     {
-        Serial.println(F("OTAA success!"));
-        joined = true;
-    }
-    else
-    {
-        Serial.print(F("OTAA failed, code "));
+        Serial.print(F("Restore session failed "));
         Serial.println(state);
-        while (true)
-            ;
+    }
+
+    while (state != RADIOLIB_ERR_NONE)
+    {
+        Serial.println(F("[LoRaWAN] Attempting over-the-air activation. Previous error code: "));
+        Serial.println(state);
+        state = node.beginOTAA(*joinEUI, *devEUI, nwkKey, appKey, true, 0);
+
+        if (state < RADIOLIB_ERR_NONE)
+        {
+            Serial.print(F("Join failed: "));
+            Serial.println(state);
+
+            // how long to wait before join attempts. This is an interim solution pending
+            // implementation of TS001 LoRaWAN Specification section #7 - this doc applies to v1.0.4 & v1.1
+            // it sleeps for longer & longer durations to give time for any gateway issues to resolve
+            // or whatever is interfering with the device <-> gateway airwaves.
+            uint32_t sleepForSeconds = min((bootCountSinceUnsuccessfulJoin++ + 1UL) * 60UL, 3UL * 60UL);
+            Serial.print(F("Boots since unsuccessful join: "));
+            Serial.println(bootCountSinceUnsuccessfulJoin);
+            Serial.print(F("Retrying join in "));
+            Serial.print(sleepForSeconds);
+            Serial.println(F(" seconds"));
+
+            sleep(sleepForSeconds);
+        }
+        else
+        {
+            Serial.println(F("Joined"));
+
+            Serial.println(F("Saving nonces to flash"));
+            uint8_t buffer[RADIOLIB_LORAWAN_NONCES_BUF_SIZE];
+            uint8_t *persist = node.getBufferNonces();
+            memcpy(buffer, persist, RADIOLIB_LORAWAN_NONCES_BUF_SIZE);
+            store.putBytes("nonces", buffer, RADIOLIB_LORAWAN_NONCES_BUF_SIZE);
+
+            // we'll save the session after the uplink
+
+            // reset the failed join count
+            bootCountSinceUnsuccessfulJoin = 0;
+
+            delay(1000); // hold off off hitting the airwaves again too soon - an issue in the US
+        }
+
+        store.end();
     }
 }
 
@@ -73,6 +147,8 @@ void LoRaWAN::send(uint8_t fport, CayenneLPP *lpp)
     uint8_t data[251];
 
     int state = node.sendReceive(lpp->getBuffer(), lpp->getSize(), fport, data, &length);
+
+    Serial.printf("fcnt: %u\n", node.getFcntUp());
 
     if (state >= RADIOLIB_ERR_NONE)
     {
@@ -116,7 +192,9 @@ void LoRaWAN::send(uint8_t fport, CayenneLPP *lpp)
         Serial.println(state);
     }
 
-    node.saveSession();
+    // now save session to RTC memory
+    uint8_t *persist = node.getBufferSession();
+    memcpy(LWsession, persist, RADIOLIB_LORAWAN_SESSION_BUF_SIZE);
 }
 
 void LoRaWAN::sleep(uint16_t time_s)
@@ -133,7 +211,10 @@ void LoRaWAN::sleep(uint16_t time_s)
 
 void LoRaWAN::reset()
 {
-    node.wipe();
+    bootCount = 1;
+    bootCountSinceUnsuccessfulJoin = 0;
+    memset(LWsession, 0, RADIOLIB_LORAWAN_SESSION_BUF_SIZE);
+
     ESP.restart();
 }
 

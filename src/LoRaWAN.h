@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <CayenneLPP.h>
+#include <Preferences.h>
 #include <RadioLib.h>
 
 class LoRaWAN
@@ -30,6 +31,8 @@ private:
     uint8_t *nwkKey;
 
     uint8_t *appKey;
+
+    Preferences store;
 
     bool joined = false;
 
