@@ -21,9 +21,13 @@ public:
     /**
      * Add a sensor to the collection
      *
+     * When the sensor_id argument is not set, the value of the sensor_t
+     * sensor_id field is used instead.
+     *
      * @param sensor Sensor to be added
+     * @param sensor_id Optional. CayenneLPP sensor ID of this sensor
      */
-    void addSensor(Adafruit_Sensor *sensor);
+    void addSensor(Adafruit_Sensor *sensor, int32_t sensor_id = 0);
 
     /**
      * Update data from all sensors in the collection
@@ -42,6 +46,11 @@ private:
      * Index of the next non-used sensor pointer array slot
      */
     uint8_t _cursor = 0;
+
+    /**
+     * Array with CayenneLPP sensor IDs for the sensors of this collection
+     */
+    int32_t *_sensorIds;
 
     /**
      * Array with all sensor pointers of this collection
