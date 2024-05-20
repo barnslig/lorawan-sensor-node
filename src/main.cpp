@@ -10,7 +10,7 @@
 #include "lorawan-keys.h"
 
 constexpr uint8_t kLoRaWANMaxPayloadSize = 51;
-constexpr uint8_t kMaxSensors = 3;
+constexpr uint8_t kMaxSensors = 4;
 
 #ifdef USE_DISPLAY
 #include "Display.h"
@@ -40,6 +40,12 @@ Adafruit_HTU21DF htu = Adafruit_HTU21DF();
 HTU21DF_Humidity_U humiditySensor(HTU_HUMIDITY_SENSOR_ID, &htu);
 HTU21DF_Temperature_U temperatureSensor(HTU_TEMPERATURE_SENSOR_ID, &htu);
 #endif // USE_HTU
+
+#ifdef USE_BME280
+#include <Adafruit_BME280.h>
+
+Adafruit_BME280 bme;
+#endif // USE_BME280
 
 #ifdef USE_SR04
 #include "HCSR04_U.h"
@@ -76,6 +82,10 @@ void sleep()
 
 void work()
 {
+#ifdef USE_BME280
+  bme.takeForcedMeasurement();
+#endif // USE_BME280
+
   lpp = sensors.update();
 
 #ifdef DEBUG_PRINT_SENSOR_VALUES
@@ -114,6 +124,24 @@ void setup()
   sensors.addSensor(&humiditySensor);
   sensors.addSensor(&temperatureSensor);
 #endif // USE_HTU
+
+#ifdef USE_BME280
+  bme.begin(BME280_I2C_ADDRESS);
+
+  /* Settings are according to BME280 datasheet recommended modes of operation
+   * in section 3.5.1: weather monitoring.
+   */
+  bme.setSampling(
+      Adafruit_BME280::MODE_FORCED,
+      Adafruit_BME280::SAMPLING_X1,
+      Adafruit_BME280::SAMPLING_X1,
+      Adafruit_BME280::SAMPLING_X1,
+      Adafruit_BME280::FILTER_OFF);
+
+  sensors.addSensor(bme.getTemperatureSensor(), BME280_TEMPERATURE_SENSOR_ID);
+  sensors.addSensor(bme.getHumiditySensor(), BME280_HUMIDITY_SENSOR_ID);
+  sensors.addSensor(bme.getPressureSensor(), BME280_PRESSURE_SENSOR_ID);
+#endif // USE_BME280
 
 #ifdef USE_SR04
   distanceSensor.begin();

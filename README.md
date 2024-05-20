@@ -15,6 +15,7 @@ Built-in support is provided for the following sensors:
 - DS18B20 Temperature Sensor
 - HC-SR04 Ultrasonic Range Sensor
 - HTU21D(F) Relative Humidity and Temperature Sensor
+- BME280 Relative Humidity, Temperature and Barometric Pressure Sensor
 - Internal battery voltage of the Heltec WiFi LoRa 32
 
 Additional sensors can be added by implementing an [Adafruit Unified Sensor](https://github.com/adafruit/Adafruit_Sensor) compatible interface.

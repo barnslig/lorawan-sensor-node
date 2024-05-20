@@ -56,6 +56,11 @@ CayenneLPP *SensorCollection::update()
             _lpp.addRelativeHumidity(_sensorIds[i], _event.relative_humidity);
             break;
         }
+        case SENSOR_TYPE_PRESSURE:
+        {
+            _lpp.addBarometricPressure(_sensorIds[i], _event.pressure);
+            break;
+        }
         }
     }
 
