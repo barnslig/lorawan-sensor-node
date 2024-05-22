@@ -68,10 +68,11 @@ Then, proceed as follows:
 3. Modify `includes/config.h` as needed
 4. Rebuild and flash the firmware
 
-## Related links
+## Links
 
 - [Kompost-Sensor: The previous firmware](https://github.com/barnslig/kompost-sensor)
-- [Dragino SN50v3-LB/LS -- LoRaWAN Sensor Node User Manual](http://wiki.dragino.com/xwiki/bin/view/Main/User%20Manual%20for%20LoRaWAN%20End%20Nodes/SN50v3-LB/)
+- [(German) Automatic compost monitoring using the Kompost-Sensor firmware](https://gartenjeden.notion.site/Automatische-Kompost-berwachung-69b5050f1a764219ad50c76095b227c9)
+- [(German) Using the integrated USB JTAG on the ESP32-S3 used in the Heltec WiFi LoRa 32 V3](https://barnslig.eu/2024/01/17/integrierten-usb-debugger-vom-esp32-s3-benutzen/)
 
 ## License
 
